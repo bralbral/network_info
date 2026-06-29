@@ -57,7 +57,7 @@ Or for a psql prompt
 ./bin/psql
 ```
 
-# Export block table
+## Export block table
 
 If you need to export data from PG to another source (Clickhouse, Elasticsearch, etc.) you can use:
 ```
@@ -132,7 +132,7 @@ Examples:
 ./bin/export_to_mmdb -h localhost -u myuser -n mydb -p mypass
 ```
 
-## Using the MMDB file
+### Using the MMDB file
 
 The MMDB file contains the following network information fields for each IP range:
 
@@ -147,7 +147,7 @@ The MMDB file contains the following network information fields for each IP rang
 
 Once you have the MMDB file, you can use it with various tools:
 
-### Python examples
+#### Python examples
 
 Simple lookup:
 ```python
@@ -163,7 +163,7 @@ with maxminddb.open_database('block_dump_2026-05-01.mmdb') as reader:
         print(f"Source: {result['source']}")
 ```
 
-### Command line example
+#### Command line example
 ```bash
 # Install mmdblookup tool
 sudo apt install mmdb-bin
