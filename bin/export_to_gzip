@@ -91,8 +91,12 @@ else
     DELIMITER_SQL="'$DELIMITER'"
 fi
 
-# Generate output filename with date
-OUTPUT_FILE="${OUTPUT_PREFIX}_$(date +'%Y-%m-%d').csv.gz"
+# Generate output filename with date (only if -o wasn't used to specify full filename)
+if [[ "$OUTPUT_PREFIX" == *.csv.gz ]]; then
+    OUTPUT_FILE="$OUTPUT_PREFIX"
+else
+    OUTPUT_FILE="${OUTPUT_PREFIX}_$(date +'%Y-%m-%d').csv.gz"
+fi
 
 # Build and execute the COPY command
 COPY_CMD="copy $TABLE TO stdout DELIMITER $DELIMITER_SQL CSV HEADER ;"
