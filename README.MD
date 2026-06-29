@@ -1,10 +1,5 @@
 # Network Info Parser
 
-This script parses the ARIN/APNIC/LACNIC/AfriNIC/RIPE databases into a local PostgreSQL database.
-After the parsing is finished you can get the infos for any IPv4 or IPv6 by querying the database.
-
-## Automated Daily Exports
-
 This repository includes automated daily exports of the complete RIR database via GitHub Actions.
 
 **What it does:**
