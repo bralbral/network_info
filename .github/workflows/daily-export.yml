@@ -63,11 +63,7 @@ jobs:
           
       - name: Export database to gzip
         run: |
-          ./bin/export_to_gzip
-          
-      - name: Rename output file
-        run: |
-          mv block_dump_*.csv.gz ${{ steps.date.outputs.filename }}
+          ./bin/export_to_gzip -o ${{ steps.date.outputs.filename }}
           
       - name: Get file info
         id: file_info
