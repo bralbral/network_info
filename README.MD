@@ -89,6 +89,8 @@ LIMIT 10;
 
 ## Export block table
 
+### Export to Gzipped CSV
+
 If you need to export data from PG to another source (Clickhouse, Elasticsearch, etc.) you can use:
 ```
 ./bin/export_to_gzip
@@ -128,39 +130,21 @@ Examples:
 ## Export to MMDB format
 
 You can also export the database to MaxMind DB (MMDB) format for use with GeoIP2-compatible tools:
+
+```sh
+docker compose run --rm network_info export_to_mmdb.py
 ```
-./bin/export_to_mmdb
+
+This will create a file named `block_dump_YYYY-MM-DD.mmdb` with the current date.
+
+For custom output filename or table:
+
+```sh
+docker compose run --rm network_info export_to_mmdb.py -o custom_output.mmdb -t block
 ```
-An MMDB file will be created with the current date in the filename.
 
 **⚠️ HIGH MEMORY USAGE WARNING**
 The MMDB export process loads all data into memory before writing the final file. For large databases (millions of records), this can require several GB of RAM. Ensure you have sufficient memory available before running the export.
-
-The script supports various options:
-```
-./bin/export_to_mmdb [OPTIONS]
-
-Options:
-  -t, --table TABLE           Table name to export (default: block)
-  -o, --output PREFIX         Output file prefix (default: block_dump)
-  -h, --host HOST             Database host (default: db)
-  -u, --user USER             Database user (default: network_info)
-  -n, --database NAME         Database name (default: network_info)
-  -p, --password PASSWORD     Database password (default: network_info)
-  --help                       Show this help message
-```
-
-Examples:
-```
-# Default export
-./bin/export_to_mmdb
-
-# Export custom table
-./bin/export_to_mmdb -t users -o users_dump
-
-# Export with custom database connection
-./bin/export_to_mmdb -h localhost -u myuser -n mydb -p mypass
-```
 
 ### Using the MMDB file
 
