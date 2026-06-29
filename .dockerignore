@@ -12,3 +12,5 @@ query_db.sh
 Dockerfile
 docker-compose.yml
 block_dump_*
+.venv/
+venv/

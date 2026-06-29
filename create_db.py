@@ -3,117 +3,147 @@
 
 import argparse
 import gzip
-import time
-from multiprocessing import cpu_count, Queue, Process, current_process
 import logging
-import re
 import os.path
-from db.model import Block
-from db.helper import setup_connection
+import re
+import time
+from multiprocessing import Process, Queue, cpu_count, current_process
+
 from netaddr import iprange_to_cidrs
 
-VERSION = '2.0'
-FILELIST = ['afrinic.db.gz','apnic.db.inet6num.gz','apnic.db.inetnum.gz','arin.db.gz','lacnic.db.gz','ripe.db.inetnum.gz','ripe.db.inet6num.gz']
+from db.helper import setup_connection
+from db.model import Block
+
+VERSION = "2.0"
+FILELIST = [
+    "afrinic.db.gz",
+    "apnic.db.inet6num.gz",
+    "apnic.db.inetnum.gz",
+    "arin.db.gz",
+    "lacnic.db.gz",
+    "ripe.db.inetnum.gz",
+    "ripe.db.inet6num.gz",
+]
 NUM_WORKERS = cpu_count()
-LOG_FORMAT = '%(asctime)-15s - %(name)-9s - %(levelname)-8s - %(processName)-11s - %(message)s'
+LOG_FORMAT = (
+    "%(asctime)-15s - %(name)-9s - %(levelname)-8s - %(processName)-11s - %(message)s"
+)
 COMMIT_COUNT = 10000
 
-logger = logging.getLogger('create_db')
+logger = logging.getLogger("create_db")
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter(LOG_FORMAT)
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
+
 def get_source(filename: str):
-    if filename.startswith('afrinic'):
-        return b'afrinic'
-    elif filename.startswith('apnic'):
-        return b'apnic'
-    elif filename.startswith('arin'):
-        return b'arin'
-    elif 'lacnic' in filename:
-        return b'lacnic'
-    elif filename.startswith('ripe'):
-        return b'ripe'
+    if filename.startswith("afrinic"):
+        return b"afrinic"
+    elif filename.startswith("apnic"):
+        return b"apnic"
+    elif filename.startswith("arin"):
+        return b"arin"
+    elif "lacnic" in filename:
+        return b"lacnic"
+    elif filename.startswith("ripe"):
+        return b"ripe"
     else:
         logger.error(f"Cannot determine source for {filename}")
     return None
 
+
 def parse_property(block: bytes, name: bytes):
-    match = re.findall(rb'^%s:\s?(.+)$' % name, block, re.MULTILINE)
+    match = re.findall(rb"^%s:\s?(.+)$" % name, block, re.MULTILINE)
     if match:
-        # remove empty lines and remove multiple names
-        x = b' '.join(list(filter(None,(x.strip().replace(b"%s: " % name, b'').replace(b"%s: " % name, b'') for x in match))))
-        # remove multiple whitespaces by using a split hack
-        # decode to latin-1 so it can be inserted in the database
-        return ' '.join(x.decode('latin-1').split())
+        # Remove empty lines and multiple names
+        prefix = b"%s: " % name
+        cleaned = b" ".join(
+            filter(None, (x.strip().replace(prefix, b"") for x in match))
+        )
+        # Remove multiple whitespaces and decode to latin-1
+        return " ".join(cleaned.decode("latin-1").split())
     return None
+
 
 def parse_property_inetnum(block: bytes):
     # IPv4
-    match = re.findall(rb'^inetnum:[\s]*((?:\d{1,3}\.){3}\d{1,3})[\s]*-[\s]*((?:\d{1,3}\.){3}\d{1,3})', block, re.MULTILINE)
+    match = re.findall(
+        rb"^inetnum:[\s]*((?:\d{1,3}\.){3}\d{1,3})[\s]*-[\s]*((?:\d{1,3}\.){3}\d{1,3})",
+        block,
+        re.MULTILINE,
+    )
     if match:
         # netaddr can only handle strings, not bytes
-        ip_start = match[0][0].decode('utf-8')
-        ip_end = match[0][1].decode('utf-8')
+        ip_start = match[0][0].decode("utf-8")
+        ip_end = match[0][1].decode("utf-8")
         return iprange_to_cidrs(ip_start, ip_end)
-    
+
     # direct CIDR in lacnic db
-    match = re.findall(rb'^inetnum:[\s]*((?:\d{1,3}\.){3}\d{1,3}/\d+)', block, re.MULTILINE)
+    match = re.findall(
+        rb"^inetnum:[\s]*((?:\d{1,3}\.){3}\d{1,3}/\d+)", block, re.MULTILINE
+    )
     if match:
         return match[0]
     # lacnic with wrong ip
     # inetnum:    177.46.7/24
-    match = re.findall(rb'^inetnum:[\s]*((?:\d{1,3}\.){2}\d{1,3}/\d+)', block, re.MULTILINE)
+    match = re.findall(
+        rb"^inetnum:[\s]*((?:\d{1,3}\.){2}\d{1,3}/\d+)", block, re.MULTILINE
+    )
     if match:
         tmp = match[0].split(b"/")
         return f"{tmp[0].decode('utf-8')}.0/{tmp[1].decode('utf-8')}".encode("utf-8")
     # inetnum:    148.204/16
-    match = re.findall(rb'^inetnum:[\s]*((?:\d{1,3}\.){1}\d{1,3}/\d+)', block, re.MULTILINE)
+    match = re.findall(
+        rb"^inetnum:[\s]*((?:\d{1,3}\.){1}\d{1,3}/\d+)", block, re.MULTILINE
+    )
     if match:
         tmp = match[0].split(b"/")
         return f"{tmp[0].decode('utf-8')}.0.0/{tmp[1].decode('utf-8')}".encode("utf-8")
     # IPv6
-    match = re.findall(rb'^inet6num:[\s]*([0-9a-fA-F:\/]{1,43})', block, re.MULTILINE)
+    match = re.findall(rb"^inet6num:[\s]*([0-9a-fA-F:\/]{1,43})", block, re.MULTILINE)
     if match:
         return match[0]
     # ARIN route IPv4
-    match = re.findall(rb'^route:[\s]*((?:\d{1,3}\.){3}\d{1,3}/\d{1,2})', block, re.MULTILINE)
+    match = re.findall(
+        rb"^route:[\s]*((?:\d{1,3}\.){3}\d{1,3}/\d{1,2})", block, re.MULTILINE
+    )
     if match:
         return match[0]
     # ARIN route6 IPv6
-    match = re.findall(rb'^route6:[\s]*([0-9a-fA-F:\/]{1,43})', block, re.MULTILINE)
+    match = re.findall(rb"^route6:[\s]*([0-9a-fA-F:\/]{1,43})", block, re.MULTILINE)
     if match:
         return match[0]
     return None
 
+
 def read_blocks(filename: str):
-    openmethod = gzip.open if filename.endswith('.gz') else open
-    cust_source = get_source(filename.split('/')[-1])
-    single_block = b''
+    openmethod = gzip.open if filename.endswith(".gz") else open
+    cust_source = get_source(filename.split("/")[-1])
+    single_block = b""
     blocks = []
-    with openmethod(filename, mode='rb') as f:
+    with openmethod(filename, mode="rb") as f:
         for line in f:
             # skip comments
-            if line.startswith((b'%', b'#', b'remarks:')):
+            if line.startswith((b"%", b"#", b"remarks:")):
                 continue
             # block end
-            if line.strip() == b'':
-                if single_block.startswith((b'inetnum:', b'inet6num:', b'route:', b'route6:')):
+            if line.strip() == b"":
+                if single_block.startswith(
+                    (b"inetnum:", b"inet6num:", b"route:", b"route6:")
+                ):
                     # add source
                     single_block += b"cust_source: %s" % cust_source
                     blocks.append(single_block)
-                    single_block = b''
-                    # comment out to only parse x blocks
-                    # if len(blocks) == 100:
-                    #    break
+                    single_block = b""
                 else:
-                    single_block = b''
+                    single_block = b""
             else:
                 single_block += line
     logger.info(f"Got {len(blocks)} blocks")
     return blocks
+
 
 def parse_blocks(jobs: Queue, connection_string: str, total_blocks: int):
     session = setup_connection(connection_string)
@@ -132,29 +162,29 @@ def parse_blocks(jobs: Queue, connection_string: str, total_blocks: int):
             continue
 
         # No netname field in ARIN block, try origin
-        netname = parse_property(block, b'netname') or parse_property(block, b'origin')
-        description = parse_property(block, b'descr')
-        country = parse_property(block, b'country')
-        city = parse_property(block, b'city')
+        netname = parse_property(block, b"netname") or parse_property(block, b"origin")
+        description = parse_property(block, b"descr")
+        country = parse_property(block, b"country")
+        city = parse_property(block, b"city")
         # if we have a city object, append it to the country
         if city:
             country = f"{country} - {city}"
-        maintained_by = parse_property(block, b'mnt-by')
-        created = parse_property(block, b'created')
-        last_modified = parse_property(block, b'last-modified')
+        maintained_by = parse_property(block, b"mnt-by")
+        created = parse_property(block, b"created")
+        last_modified = parse_property(block, b"last-modified")
         if not last_modified:
-            changed = parse_property(block, b'changed')
+            changed = parse_property(block, b"changed")
             # ***@ripe.net 19960624
             # a.c@domain.com 20060331
             # maybe repeated multiple times, we only take the first
-            if re.match(r'^.+?@.+? \d+', changed):
+            if re.match(r"^.+?@.+? \d+", changed):
                 date = changed.split(" ")[1].strip()
                 if len(date) == 8:
                     year = int(date[0:4])
                     month = int(date[4:6])
                     day = int(date[6:8])
                     # some sanity checks for dates
-                    if month >= 1 and month <=12 and day >= 1 and day <= 31:
+                    if month >= 1 and month <= 12 and day >= 1 and day <= 31:
                         last_modified = f"{year}-{month}-{day}"
                     else:
                         logger.debug(f"ignoring invalid changed date {date}")
@@ -166,25 +196,54 @@ def parse_blocks(jobs: Queue, connection_string: str, total_blocks: int):
             else:
                 last_modified = changed
 
-        status = parse_property(block, b'status')
-        source = parse_property(block, b'cust_source')
+        status = parse_property(block, b"status")
+        source = parse_property(block, b"cust_source")
         if isinstance(inetnum, list):
             for cidr in inetnum:
-                session.add(Block(inetnum=str(cidr), netname=netname, description=description, country=country, maintained_by=maintained_by, created=created, last_modified=last_modified, source=source, status=status))
+                session.add(
+                    Block(
+                        inetnum=str(cidr),
+                        netname=netname,
+                        description=description,
+                        country=country,
+                        maintained_by=maintained_by,
+                        created=created,
+                        last_modified=last_modified,
+                        source=source,
+                        status=status,
+                    )
+                )
         else:
-            session.add(Block(inetnum=inetnum.decode('utf-8'), netname=netname, description=description, country=country, maintained_by=maintained_by, created=created, last_modified=last_modified, source=source, status=status))
+            session.add(
+                Block(
+                    inetnum=inetnum.decode("utf-8"),
+                    netname=netname,
+                    description=description,
+                    country=country,
+                    maintained_by=maintained_by,
+                    created=created,
+                    last_modified=last_modified,
+                    source=source,
+                    status=status,
+                )
+            )
         counter += 1
         blocks_done += 1
         if counter % COMMIT_COUNT == 0:
             session.commit()
-            percent = (blocks_done * NUM_WORKERS * 100) / total_blocks if total_blocks else 0
+            percent = (
+                (blocks_done * NUM_WORKERS * 100) / total_blocks if total_blocks else 0
+            )
             # not really accurate at the moment
-            logger.debug(f'committed {counter} blocks ({round(time.time() - start_time,2)}s) {percent:.1f}% done')
+            logger.debug(
+                f"committed {counter} blocks ({round(time.time() - start_time, 2)}s) {percent:.1f}% done"
+            )
             counter = 0
             start_time = time.time()
     session.commit()
     session.close()
     logger.debug(f"{current_process().name} finished")
+
 
 def main(connection_string):
     overall_start_time = time.time()
@@ -193,20 +252,28 @@ def main(connection_string):
     for entry in FILELIST:
         f_name = f"./databases/{entry}"
         if not os.path.exists(f_name):
-            logger.info(f"File {f_name} not found. Please download using download_dumps.sh")
+            logger.info(
+                f"File {f_name} not found. Please download using download_dumps.sh"
+            )
             continue
 
         logger.info(f"parsing database file: {f_name}")
         start_time = time.time()
         blocks = read_blocks(f_name)
-        logger.info(f"database parsing finished: {round(time.time() - start_time,2)} seconds")
+        logger.info(
+            f"database parsing finished: {round(time.time() - start_time, 2)} seconds"
+        )
         total_blocks = len(blocks)
-        
+
         jobs = Queue()
         workers = []
         # start workers
         for _ in range(NUM_WORKERS):
-            p = Process(target=parse_blocks, args=(jobs, connection_string, total_blocks), daemon=True)
+            p = Process(
+                target=parse_blocks,
+                args=(jobs, connection_string, total_blocks),
+                daemon=True,
+            )
             p.start()
             workers.append(p)
         # add tasks
@@ -214,17 +281,28 @@ def main(connection_string):
             jobs.put(b)
         for _ in range(NUM_WORKERS):
             jobs.put(None)
-         # wait to finish
+        # wait to finish
         for p in workers:
             p.join()
-        logger.info(f"block parsing finished: {round(time.time() - start_time,2)} seconds")
-    logger.info(f"script finished: {round(time.time() - overall_start_time,2)} seconds")
+        logger.info(
+            f"block parsing finished: {round(time.time() - start_time, 2)} seconds"
+        )
+    logger.info(
+        f"script finished: {round(time.time() - overall_start_time, 2)} seconds"
+    )
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create DB')
-    parser.add_argument('-c', dest='connection_string', type=str, required=True, help="Connection string to postgres")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Create DB")
+    parser.add_argument(
+        "-c",
+        dest="connection_string",
+        type=str,
+        required=True,
+        help="Connection string to postgres",
+    )
     parser.add_argument("-d", "--debug", action="store_true")
-    parser.add_argument('--version', action='version', version=f"%(prog)s {VERSION}")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     args = parser.parse_args()
     if args.debug:
         logger.setLevel(logging.DEBUG)

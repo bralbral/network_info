@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*- ®
+# -*- coding: utf-8 -*-
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
