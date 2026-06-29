@@ -23,7 +23,9 @@ This repository includes automated daily exports of the complete RIR database vi
 - source (RIR)
 - status
 
-# Docker
+# If you want to do it locally
+
+## Docker
 
 If you have checked out the GIT repo you can run the script via `docker compose`.
 I included some binstubs so you don't have to deal with all the docker commands.
