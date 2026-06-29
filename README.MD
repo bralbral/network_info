@@ -95,7 +95,7 @@ Examples:
 ./bin/export_to_gzip -t users -d '|' -o users_dump
 ```
 
-# Export to MMDB format
+## Export to MMDB format
 
 You can also export the database to MaxMind DB (MMDB) format for use with GeoIP2-compatible tools:
 ```
