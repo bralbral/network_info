@@ -25,36 +25,66 @@ This repository includes automated daily exports of the complete RIR database vi
 
 # If you want to do it locally
 
-## Docker
+## Deployment
 
-If you have checked out the GIT repo you can run the script via `docker compose`.
-I included some binstubs so you don't have to deal with all the docker commands.
-
-If you run
+To deploy the application using Docker Compose:
 
 ```sh
 ./bin/network_info
 ```
 
-the image will be built, a postgres database is connected, the files are downloaded and the parsing begins.
-The database stays up after the run (you can see it via `docker ps`) so you can connect it to your script.
+This command will:
+- Build the Docker image
+- Start the PostgreSQL database container
+- Download the latest RIR database dumps
+- Parse the data into the database
 
-For a one shot query you can run
+The database container remains running after the initial import. You can verify it with:
 
-```
-./bin/query IPv4
-```
-
-or
-
-```
-./bin/query IPv6
+```sh
+docker ps
 ```
 
-Or for a psql prompt
+## Querying the Database
 
+### Quick IP Lookup
+
+To query a specific IP address:
+
+```sh
+./bin/query 8.8.8.8
 ```
+
+### Interactive PostgreSQL Shell
+
+For direct SQL access to the database:
+
+```sh
 ./bin/psql
+```
+
+### Manual SQL Queries
+
+Example queries you can run in the psql shell:
+
+```sql
+-- Find network information for an IPv4 address
+SELECT inetnum, netname, country, description, maintained_by, source 
+FROM block 
+WHERE inetnum >> '8.8.8.8' 
+ORDER BY inetnum DESC;
+
+-- Find all networks for a specific country
+SELECT inetnum, netname, description 
+FROM block 
+WHERE country = 'US' 
+LIMIT 10;
+
+-- Search by netname
+SELECT inetnum, country, description 
+FROM block 
+WHERE netname ILIKE '%google%' 
+LIMIT 10;
 ```
 
 ## Export block table
