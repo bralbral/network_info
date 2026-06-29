@@ -3,13 +3,6 @@
 This script parses the ARIN/APNIC/LACNIC/AfriNIC/RIPE databases into a local PostgreSQL database.
 After the parsing is finished you can get the infos for any IPv4 or IPv6 by querying the database.
 
-This project was used in analysing some data dumps and cross referencing the IPs with the networks.
-It can also be used to easily search for netranges assigned to a company in interest.
-
-I recommend using the docker setup because it removes the hassle of installing everything manually.
-
-Hint: The Database can grow fast so be sure to have enough space. On docker my postgres database uses 4.066GB of space.
-
 ## Automated Daily Exports
 
 This repository includes automated daily exports of the complete RIR database via GitHub Actions.
