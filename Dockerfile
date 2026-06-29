@@ -1,16 +1,21 @@
-FROM python:3-alpine
+FROM python:3-slim
 LABEL maintainer="Denis Kosyakov  <bralbral@gmail.com>"
 
-RUN adduser -h /app -g app -D app
+RUN useradd -m -d /app app
 
 WORKDIR /app
 
 COPY requirements.txt /app
 
-RUN apk add --no-cache bash postgresql-libs wget \
-  && apk add --no-cache --virtual .builddeps build-base postgresql-dev \
-  && pip install --no-cache-dir -r requirements.txt \
-  && apk del --no-cache .builddeps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    wget \
+    libpq-dev \
+    gcc \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get remove -y gcc libpq-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . /app
 RUN chown -R app:app /app
