@@ -127,7 +127,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Cleanup old releases (keep last 7 days)
+      - name: Cleanup old releases and tags (keep last 7 days)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -139,8 +139,8 @@ jobs:
           for release in $releases; do
             count=$((count + 1))
             if [ $count -gt 7 ]; then
-              echo "Deleting old release: $release"
-              gh release delete "$release" --yes
+              echo "Deleting old release and tag: $release"
+              gh release delete "$release" --cleanup-tag --yes
             fi
           done
           
