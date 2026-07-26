@@ -1,6 +1,6 @@
 # Network Info Parser
 
-This repository includes automated daily exports of the complete RIR database via GitHub Actions.
+This repository includes automated weekly exports of the complete RIR database via GitHub Actions.
 
 **What it does:**
 - Downloads the latest RIR database dumps from all regional registries (ARIN, RIPE, APNIC, LACNIC, AfriNIC)
@@ -8,7 +8,7 @@ This repository includes automated daily exports of the complete RIR database vi
 - Exports the complete database to a gzipped CSV file
 - Creates a GitHub Release with the exported file
 
-**Schedule:** Runs daily at 00:00 UTC (can also be triggered manually)
+**Schedule:** Runs every Monday at 00:00 UTC (can also be triggered manually)
 
 **Download latest exports:** https://github.com/bralbral/network_info/releases
 
